@@ -1,0 +1,193 @@
+{
+  "label": "ERNIE-5.5-Flash-Preview",
+  "date": "2026-11-24",
+  "max_tokens": 768,
+  "sampling": "temperature 0.6, top_p 0.95",
+  "thinking": "always on",
+  "decode": [
+    {
+      "concurrency": 1,
+      "requests": 4,
+      "wall_s": 67.9,
+      "completion_tokens": 3072,
+      "aggregate_tok_s": 45.2,
+      "decode_tok_s_per_stream_median": 46.6,
+      "decode_tok_s_per_stream_min": 41.8,
+      "decode_tok_s_per_stream_max": 48.5,
+      "ttft_s_median": 0.21,
+      "ttft_s_max": 0.23,
+      "finish": {
+        "length": 4
+      },
+      "spec": {
+        "drafts": 1256,
+        "drafted": 3768,
+        "accepted": 1816,
+        "mean_tokens_per_step": 2.45,
+        "accept_rate": 0.482,
+        "accept_by_position": {
+          "0": 0.746,
+          "1": 0.452,
+          "2": 0.248
+        }
+      },
+      "errors": []
+    },
+    {
+      "concurrency": 2,
+      "requests": 4,
+      "wall_s": 41.1,
+      "completion_tokens": 3072,
+      "aggregate_tok_s": 74.7,
+      "decode_tok_s_per_stream_median": 39.1,
+      "decode_tok_s_per_stream_min": 36.5,
+      "decode_tok_s_per_stream_max": 39.6,
+      "ttft_s_median": 0.27,
+      "ttft_s_max": 0.32,
+      "finish": {
+        "length": 4
+      },
+      "spec": {
+        "drafts": 1238,
+        "drafted": 3714,
+        "accepted": 1833,
+        "mean_tokens_per_step": 2.48,
+        "accept_rate": 0.494,
+        "accept_by_position": {
+          "0": 0.772,
+          "1": 0.468,
+          "2": 0.241
+        }
+      },
+      "errors": []
+    },
+    {
+      "concurrency": 4,
+      "requests": 8,
+      "wall_s": 53.7,
+      "completion_tokens": 6144,
+      "aggregate_tok_s": 114.4,
+      "decode_tok_s_per_stream_median": 30.1,
+      "decode_tok_s_per_stream_min": 27.2,
+      "decode_tok_s_per_stream_max": 32.2,
+      "ttft_s_median": 0.31,
+      "ttft_s_max": 0.32,
+      "finish": {
+        "length": 8
+      },
+      "spec": {
+        "drafts": 2516,
+        "drafted": 7548,
+        "accepted": 3628,
+        "mean_tokens_per_step": 2.44,
+        "accept_rate": 0.481,
+        "accept_by_position": {
+          "0": 0.747,
+          "1": 0.452,
+          "2": 0.242
+        }
+      },
+      "errors": []
+    },
+    {
+      "concurrency": 8,
+      "requests": 16,
+      "wall_s": 75.9,
+      "completion_tokens": 12288,
+      "aggregate_tok_s": 162.0,
+      "decode_tok_s_per_stream_median": 21.2,
+      "decode_tok_s_per_stream_min": 19.0,
+      "decode_tok_s_per_stream_max": 26.7,
+      "ttft_s_median": 0.45,
+      "ttft_s_max": 0.61,
+      "finish": {
+        "length": 16
+      },
+      "spec": {
+        "drafts": 4982,
+        "drafted": 14946,
+        "accepted": 7307,
+        "mean_tokens_per_step": 2.47,
+        "accept_rate": 0.489,
+        "accept_by_position": {
+          "0": 0.759,
+          "1": 0.462,
+          "2": 0.245
+        }
+      },
+      "errors": []
+    },
+    {
+      "concurrency": 16,
+      "requests": 32,
+      "wall_s": 104.5,
+      "completion_tokens": 24576,
+      "aggregate_tok_s": 235.2,
+      "decode_tok_s_per_stream_median": 15.5,
+      "decode_tok_s_per_stream_min": 14.0,
+      "decode_tok_s_per_stream_max": 17.3,
+      "ttft_s_median": 0.68,
+      "ttft_s_max": 0.89,
+      "finish": {
+        "length": 32
+      },
+      "spec": {
+        "drafts": 9984,
+        "drafted": 29952,
+        "accepted": 14590,
+        "mean_tokens_per_step": 2.46,
+        "accept_rate": 0.487,
+        "accept_by_position": {
+          "0": 0.756,
+          "1": 0.46,
+          "2": 0.245
+        }
+      },
+      "errors": []
+    }
+  ],
+  "prefill": [
+    {
+      "target_prompt_tokens": 8000,
+      "prompt_tokens": 6005,
+      "ttft_s": 3.93,
+      "prefill_tok_s_upper_bound": 1526,
+      "decode_tok_s": 49.7,
+      "completion_tokens": 83,
+      "finish": "stop",
+      "spec": {
+        "drafts": 31,
+        "drafted": 93,
+        "accepted": 53,
+        "mean_tokens_per_step": 2.71,
+        "accept_rate": 0.57,
+        "accept_by_position": {
+          "0": 0.742,
+          "1": 0.613,
+          "2": 0.355
+        }
+      }
+    },
+    {
+      "target_prompt_tokens": 32000,
+      "prompt_tokens": 23913,
+      "ttft_s": 15.69,
+      "prefill_tok_s_upper_bound": 1524,
+      "decode_tok_s": 50.1,
+      "completion_tokens": 87,
+      "finish": "stop",
+      "spec": {
+        "drafts": 31,
+        "drafted": 93,
+        "accepted": 56,
+        "mean_tokens_per_step": 2.81,
+        "accept_rate": 0.602,
+        "accept_by_position": {
+          "0": 0.839,
+          "1": 0.613,
+          "2": 0.355
+        }
+      }
+    }
+  ]
+}

@@ -3,12 +3,12 @@
 <p align="center"><sub>vLLM + Baidu's vLLM-ERNIE plugin · tensor parallel 4 · W4A8 experts · DSpark speculative decoding · over the ConnectX-7 fabric</sub></p>
 
 > [!IMPORTANT]
-> **Status: serving, thinly measured.** This recipe describes a lane that is up and answering on four GB10 Sparks (see
+> **Status: serving, measured for throughput, not for quality.** This recipe describes a lane that is up and answering on four GB10 Sparks (see
 > [What is checked](#what-is-checked), including what is **not**). It is a **reconstruction**: the launcher in this repo was
 > rebuilt from `docker inspect` of the running containers, then proven to regenerate every rank's command line, environment
 > and mounts exactly. It has not been used to cold-start the lane from an empty node, and `start.sh`'s checks, image build
-> and wait loop have not run end to end yet. Verify against your own nodes before relying on it. No throughput benchmark
-> exists yet. The model is a Baidu *preview* checkpoint (post-training is unfinished).
+> and wait loop have not run end to end yet. Verify against your own nodes before relying on it. Throughput is measured (see [Performance](#performance)); output
+> quality is not. The model is a Baidu *preview* checkpoint (post-training is unfinished).
 
 This recipe serves [`baidu/ERNIE-5.5-Flash-Preview`](https://huggingface.co/baidu/ERNIE-5.5-Flash-Preview) (280B total, 14B
 active, 512 routed experts top-10, 43 layers, 1M-token window) on **four NVIDIA DGX Sparks** (GB10, `sm_121`, 128 GB unified
@@ -59,26 +59,63 @@ Checked on 2026-11-24 against the live lane, by reading it back, not by trusting
   pass was repeated). `scripts/verify-weights.py` is the checker.
 - **Serving.** `/health` 200, `/v1/models` lists the served name with `max_model_len` 262144, tool and reasoning parsers loaded,
   prefix caching on, and a plain arithmetic prompt returned the right answer (`17*23` → `391`, thinking on, 22 tokens).
-  A 600-token code request returned `200` and stopped at `finish_reason: length` mid-answer, after 549 of its 600 tokens went on thinking;
-  that is the cap, not a fault.
-- **Speculative decoding is doing work.** From the lane's own `/metrics` since its start (mixed traffic, a few thousand drafts):
-  per-position acceptance 82.9% / 60.2% / 40.2% for the three draft tokens, 61.1% of drafted tokens accepted overall,
-  i.e. about 2.8 tokens emitted per verify step.
+  The benchmark below ran 64 streamed requests (1 to 16 at a time) and two long prompts with no errors.
+- **Speculative decoding is doing work.** See the table below: about 2.5 tokens per verify step on long thinking-heavy
+  essays, and a higher 61% acceptance (2.8 tokens per step) over the lane's earlier mixed short traffic.
 - **Offline suite.** `scripts/tests/check.sh` (syntax, shellcheck, the DRY_RUN shape, and an exposure scan) passes.
 
 **Not checked, so do not read it as verified:**
 
 - A cold start from this repo: `start.sh`'s preflight, remote image build, worker launch order and wait loop are written from
   the same inspection but have never driven a real start. The first run on a fresh set of nodes is the real test.
-- **Throughput.** There is no benchmark, no concurrency sweep and no long-context run. The one 600-token request took 27.6 s
-  end to end (about 22 tok/s counting 549 thinking tokens), measured once on a lane that may have been serving other traffic.
-  Treat that as a sanity figure, not a number.
+- **Throughput beyond what is in the table.** One run per concurrency level, one prompt family (long essays), prompts up to
+  23,913 tokens, no agent-loop trace, no repeat runs for variance.
 - **Quality.** No eval has been run on this deployment. Baidu's benchmark table is Baidu's own.
-- **Context beyond 262,144.** The model supports 1,048,576. This lane was configured and observed at 262,144 only.
+- **Long context.** The model supports 1,048,576 tokens. This lane is configured for 262,144 and was benchmarked to a ~24k-token prompt only.
 - **`SPEC_TOKENS` above 3.** The model card suggests up to 7 draft tokens at low concurrency; this lane runs 3.
 - **FP8/BF16 repositories**, the SGLang path, and the plugin commits newer than `ba322a56`.
 - First-boot time on empty caches. A start with warm caches took about four minutes from `docker run` to the API listening
   (weights load 107 s, KV and warm-up 36 s).
+
+## Performance
+
+Measured 2026-11-24 on the lane described here (four GB10 Sparks, TP=4, `SPEC_TOKENS=3`, 262,144 context, the settings in the table
+below), with `scripts/bench/bench.py` (standard library only; raw output in
+[`results/2026-11-24-tp4-c1-16.json`](results/2026-11-24-tp4-c1-16.json)). **Thinking is always on**, so every request is a
+long thinking trace followed by an answer; the 768-token cap was reached by all 64 decode requests. Sampling was temperature 0.6, top-p 0.95.
+The lane had no other requests running at the start. Prompts are unique per request, so the prefix cache did not help.
+
+**Decode, one prompt family (explain a topic in depth), 768 new tokens per request**
+
+| Concurrent streams | Requests | Decode tok/s per stream, median (min-max) | **Aggregate tok/s** | TTFT median (s) | Tokens per verify step | Draft accept rate (by position, %) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 4 | 46.6 (41.8-48.5) | **45.2** | 0.21 | 2.45 | 48% (75 / 45 / 25) |
+| 2 | 4 | 39.1 (36.5-39.6) | **74.7** | 0.27 | 2.48 | 49% (77 / 47 / 24) |
+| 4 | 8 | 30.1 (27.2-32.2) | **114.4** | 0.31 | 2.44 | 48% (75 / 45 / 24) |
+| 8 | 16 | 21.2 (19.0-26.7) | **162.0** | 0.45 | 2.47 | 49% (76 / 46 / 24) |
+| 16 | 32 | 15.5 (14.0-17.3) | **235.2** | 0.68 | 2.46 | 49% (76 / 46 / 24) |
+
+**Prefill, one request at a time, 128 new tokens (the answer finished earlier)**
+
+| Prompt tokens | TTFT (s) | Prefill tok/s (upper bound) | Decode tok/s after |
+| ---: | ---: | ---: | ---: |
+| 6,005 | 3.93 | 1,526 | 49.7 |
+| 23,913 | 15.69 | 1,524 | 50.1 |
+
+How to read it:
+
+- **Per stream, it is fast for a 280B model, and it drops as streams are added.** One stream decodes at about 47 tok/s; sixteen
+  streams share the lane at about 235 tok/s in total, 5.2 times one stream, with each stream slowing to about 15 tok/s. Aggregate
+  throughput was still rising at 16 streams; where it flattens was not tested.
+- **Speculative decoding earns about 2.5 tokens per step** at these settings: 75% of first draft tokens are accepted, 45% of
+  second, 25% of third. Acceptance was higher (61% overall) on the lane's earlier short, mixed prompts, so it depends on the text.
+  Whether more than three draft tokens would pay off was not tested.
+- **Prefill is about 1,525 tok/s**, flat from 6k to 24k tokens, so a 24k-token prompt waits roughly 16 s before the first
+  token. The prefill figure is an upper bound on speed, because the time to first token also contains the first decode step.
+- **Not a quality score.** These numbers say how fast tokens come out, not whether they are good tokens.
+
+Reproduce: `python3 -I scripts/bench/bench.py --url http://127.0.0.1:$PORT --model <served name> --out results/run.json`
+(about 8 minutes). Compare lanes only with the same script, the same prompts and the same sampling.
 
 ## Requirements
 
@@ -133,9 +170,9 @@ Defaults live in `scripts/config.sh`; override in `scripts/local.sh` (which wins
 | `WAIT_TIMEOUT` | `3600` | Seconds `start.sh` waits for `/health`; also passed as `VLLM_ENGINE_READY_TIMEOUT_S` |
 | `BASE_IMAGE`, `VLLM_ERNIE_REF` | pinned (see `scripts/config.sh`) | Base image digest and plugin commit |
 
-**The served name is a contract.** Clients that must not change configuration when a lane is swapped can pin `SERVED_NAME` to
-the name they already use; the live lane does exactly that, so the name in `/v1/models` says nothing about which model
-answers. Check the container (`docker ps`, `docker inspect`) or the log, not the alias.
+**Pinning the served name.** The default is the model's own name. If your clients already send a fixed model name and must not
+be reconfigured when you swap lanes, set `SERVED_NAME` to that name instead; remember then that `/v1/models` no longer tells you which
+model is answering, so check the container (`docker ps`, `docker inspect`) or the log.
 
 The reply puts the model's thinking in **`message.reasoning`** on this vLLM build, not `reasoning_content` as the model card
 shows. Thinking is always on: budget `max_tokens` for it (the 22-token arithmetic answer used 19 for thinking).

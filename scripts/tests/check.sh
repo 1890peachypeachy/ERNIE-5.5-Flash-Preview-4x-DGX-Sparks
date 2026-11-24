@@ -11,7 +11,7 @@ ok()  { printf 'ok    %s\n' "$*"; }
 bad() { printf 'FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 
 for f in start.sh stop.sh scripts/*.sh scripts/tests/*.sh; do bash -n "$f" && ok "syntax $f" || bad "syntax $f"; done
-python3 -I -c 'import ast,sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' scripts/verify-weights.py patches/patch_ernie_sm121.py && ok "python parses" || bad "python parse"
+python3 -I -c 'import ast,sys; [ast.parse(open(f).read(), f) for f in sys.argv[1:]]' scripts/verify-weights.py scripts/bench/bench.py patches/patch_ernie_sm121.py && ok "python parses" || bad "python parse"
 if command -v shellcheck >/dev/null; then
   shellcheck -x -S warning start.sh stop.sh scripts/lib.sh scripts/config.sh scripts/fetch-weights.sh scripts/tests/check.sh && ok shellcheck || bad shellcheck
 fi

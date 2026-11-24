@@ -56,9 +56,9 @@ afterwards.
 
 ## Open questions
 
-1. How fast is it? There is no benchmark: single stream, concurrency 4/8/16, long prompts.
-2. Is `SPEC_TOKENS=3` right? The card recommends up to 7 at low concurrency. Acceptance at three positions is 83% / 60% / 40%, so a
-   fourth position would accept under 40% of the time; whether the extra verification cost pays is untested.
+1. Variance and agent-shaped load. The first benchmark is one run per level on one prompt family; repeat it, and replay a real agent trace.
+2. Is `SPEC_TOKENS=3` right? The card recommends up to 7 at low concurrency. On long essays the three positions accept 75% / 45% / 25%, so a
+   fourth would accept under 25% of the time; whether the extra verification cost pays is untested.
 3. Does the sm_121 attention merge match the reference kernels numerically? Only end-to-end answers have been looked at.
 4. Does context beyond 262,144 work, and what does the KV pool need for it?
 5. How does a first start on empty caches behave (time, memory peaks)?
