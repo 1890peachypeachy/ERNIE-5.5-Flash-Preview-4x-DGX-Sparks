@@ -71,8 +71,8 @@ Checked on 2026-11-24 against the live lane, by reading it back, not by trusting
 - **Throughput beyond what is in the table.** One run per concurrency level, one prompt family (long essays), prompts up to
   23,913 tokens, no agent-loop trace, no repeat runs for variance.
 - **Quality.** No eval has been run on this deployment. Baidu's benchmark table is Baidu's own.
-- **Long context.** The model supports 1,048,576 tokens. This lane is configured for 262,144 and was benchmarked to a ~24k-token prompt only.
-- **`SPEC_TOKENS` above 3.** The model card suggests up to 7 draft tokens at low concurrency; this lane runs 3.
+- **Long context.** The model supports 1,048,576 tokens. This lane is configured for 262,144; `scripts/bench/bench.py` ran to a ~24k-token prompt, and the reported tuning sweep reached 180K (needle retrieved, [docs/tuning.md](docs/tuning.md)). Nothing here covers 262K or beyond.
+- **`SPEC_TOKENS` re-check.** The model card suggests up to 7 draft tokens at low concurrency; the reported tuning sweep found 3 best across its workloads. This repository has not re-run that comparison.
 - **FP8/BF16 repositories**, the SGLang path, and the plugin commits newer than `ba322a56`.
 - First-boot time on empty caches. A start with warm caches took about four minutes from `docker run` to the API listening
   (weights load 107 s, KV and warm-up 36 s).
@@ -109,10 +109,15 @@ How to read it:
   throughput was still rising at 16 streams; where it flattens was not tested.
 - **Speculative decoding earns about 2.5 tokens per step** at these settings: 75% of first draft tokens are accepted, 45% of
   second, 25% of third. Acceptance was higher (61% overall) on the lane's earlier short, mixed prompts, so it depends on the text.
-  Whether more than three draft tokens would pay off was not tested.
+  The tuning sweep compared k = 2, 3, 4 and 7 and kept 3 ([docs/tuning.md](docs/tuning.md)); that comparison is reported, not re-run here.
 - **Prefill is about 1,525 tok/s**, flat from 6k to 24k tokens, so a 24k-token prompt waits roughly 16 s before the first
   token. The prefill figure is an upper bound on speed, because the time to first token also contains the first decode step.
 - **Not a quality score.** These numbers say how fast tokens come out, not whether they are good tokens.
+
+A second, larger set from the tuning session (prose, code, JSON, deterministic and live agentic runs, concurrency 2 and 4, prefill to 88K
+and a 180K needle test, plus how `b12x`, `k=3` and `mnbt=8192` were chosen over the baseline) is in
+[docs/tuning.md](docs/tuning.md). Its headline: **+44% to +63% single-stream decode over the first working config, +129% at four
+streams, 1.3-1.5K tok/s prefill out to 180K tokens.** Those figures were supplied by the lane's operator and were not re-run here, so they are labelled as reported.
 
 Reproduce: `python3 -I scripts/bench/bench.py --url http://127.0.0.1:$PORT --model <served name> --out results/run.json`
 (about 8 minutes). Compare lanes only with the same script, the same prompts and the same sampling.
@@ -179,7 +184,7 @@ shows. Thinking is always on: budget `max_tokens` for it (the 22-token arithmeti
 
 ## Memory on a 128 GB unified Spark
 
-From the live rank-0 log: initial free memory 113.39 GiB; model loading took 42.02 GiB; a 16.0 GiB KV pool was reserved by
+From the live rank-0 log (the tuning sweep reports different figures, 41.74 GiB and 1.49M tokens: see [docs/tuning.md](docs/tuning.md)): initial free memory 113.39 GiB; model loading took 42.02 GiB; a 16.0 GiB KV pool was reserved by
 size; CUDA graphs took 1.48 GiB; the pool holds **572,021 tokens** (2.18 full 262,144-token requests at once). `MAX_SEQS=16`
 and `MAX_BATCHED_TOKENS=8192` bound the rest. The Spark's CPU and GPU share one pool, so anything else on the box (a ComfyUI
 tenant, a page cache that has not been dropped) comes out of the same 128 GB; leave headroom before raising `KV_CACHE_BYTES`

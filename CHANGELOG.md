@@ -1,5 +1,8 @@
 # Changelog
 
+- **2026-11-24 (tuning sweep)** -- Added `docs/tuning.md`: the operator-reported decode, prefill and long-context results (to 180K tokens) and the step-by-step
+  case for `b12x`, DSpark `k=3` and `mnbt=8192`. Labelled as reported, not re-run here. Flagged one open mismatch with the live boot log (KV pool tokens, weight GiB).
+
 - **2026-11-24 (benchmark)** -- Added `scripts/bench/bench.py` and the first throughput numbers: 46.6 tok/s per stream at one stream,
   235 tok/s aggregate at 16, prefill about 1,525 tok/s to a ~24k-token prompt, about 2.5 tokens per speculative step.
   Raw results in `results/`. Made the repository public.

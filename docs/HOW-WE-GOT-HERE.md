@@ -38,8 +38,8 @@ Neither runs unmodified on four Sparks:
 
 **Not recorded.** The bring-up that produced the patch (which crash led to which of the ten edits, in what order, with what dead
 ends) was done in another working session and left no log that this repo could read. The numbers `KV_CACHE_BYTES=16 GiB`,
-`MAX_SEQS=16`, `SPEC_TOKENS=3`, `BLOCK_SIZE=256` and the CUDA graph sizes were chosen then; whether they are tuned or merely
-the first values that booted is **unknown**. The patch comments say what each edit does, not what failed without it.
+`MAX_SEQS=16`, `SPEC_TOKENS=3`, `BLOCK_SIZE=256` and the CUDA graph sizes were chosen then. The operator's tuning sweep ([tuning.md](tuning.md))
+shows `b12x`, `k=3` and `mnbt=8192` were each compared against alternatives and kept; it does not cover `MAX_SEQS`, `BLOCK_SIZE` or the CUDA graph sizes, so whether those are tuned is **unknown**. The patch comments say what each edit does, not what failed without it.
 
 If you tune this lane, record the failure and the fix here as you go. That is the part of a recipe that cannot be reconstructed
 afterwards.

@@ -39,6 +39,10 @@ curl -s localhost:$PORT/metrics | grep -E '^vllm:spec_decode_(num_drafts|num_dra
 | Spec-decode counters | 2,527 drafts, 7,581 drafted, 4,633 accepted; per position 2,095 / 1,521 / 1,017 | DSpark drafts are accepted at about 61%; speed-up not measured |
 | `scripts/tests/check.sh` | passes | Scripts parse, DRY_RUN has the right shape, nothing sensitive is committed |
 
+## Reported, not re-run here
+
+[docs/tuning.md](docs/tuning.md): one operator's tuning-sweep numbers (workload-specific decode, prefill to 88K, a 180K needle test, a k and `mnbt` comparison). Not reproduced by this repository.
+
 ## Not established
 
 No repeat runs (so no variance across runs), no agent-loop trace, no prompt beyond about 24k tokens, no quality evaluation, no cold start from this repo, no first-boot-on-empty-cache timing,
