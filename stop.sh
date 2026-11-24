@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Stop the ERNIE lane: rank 0 first, then ranks 1-3. Each rank's log is saved to logs/current/ and the set is archived to
-# logs/ernie55-<time>.tar.gz. Only containers carrying the label ernie55.recipe=ernie55-tp4 are ever stopped or removed.
+# logs/ernie55-<time>.tar.gz. Only a container named $CONTAINER that carries the label ernie55.recipe=ernie55-tp4, or runs an
+# image tagged $IMAGE_NAME:*, is ever stopped or removed (so a lane started by hand from the same image is found too).
 #
 # Usage: ./stop.sh        DRY_RUN=1 ./stop.sh   prints what it would do
 set -euo pipefail
@@ -13,7 +14,7 @@ check_topology
 
 mkdir -p "$LOG_DIR/current"
 for r in 0 1 2 3; do
-  find_cmd="docker ps -a -q --filter 'label=ernie55.recipe=$RECIPE_LABEL' --filter 'name=^/$CONTAINER\$'"
+  find_cmd="docker ps -a --filter 'name=^/$CONTAINER\$' --format '{{.ID}}|{{.Image}}|{{.Label \"ernie55.recipe\"}}' | awk -F'|' -v lab='$RECIPE_LABEL' -v img='$IMAGE_NAME:' 'index(\$2, img) == 1 || \$3 == lab { print \$1 }'"
   if [[ "$DRY_RUN" == 1 ]]; then say "would stop $(node_name "$r"): $find_cmd"; continue; fi
   id=$(node_sh "$r" "$find_cmd" 2>/dev/null || true)
   if [[ -z "$id" ]]; then say "none $(node_name "$r")"; continue; fi
