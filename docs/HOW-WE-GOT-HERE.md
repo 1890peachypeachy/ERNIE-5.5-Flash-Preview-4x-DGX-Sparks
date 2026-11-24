@@ -41,6 +41,10 @@ ends) was done in another working session and left no log that this repo could r
 `MAX_SEQS=16`, `SPEC_TOKENS=3`, `BLOCK_SIZE=256` and the CUDA graph sizes were chosen then. The operator's tuning sweep ([tuning.md](tuning.md))
 shows `b12x`, `k=3` and `mnbt=8192` were each compared against alternatives and kept; it does not cover `MAX_SEQS`, `BLOCK_SIZE` or the CUDA graph sizes, so whether those are tuned is **unknown**. The patch comments say what each edit does, not what failed without it.
 
+One piece of the history does survive: the operator's launcher kept a pre-tuning snapshot of its settings, and it differs from the
+final ones in exactly the three levers the sweep reports (MoE backend `auto` then `b12x`, DSpark tokens 7 then 3, max batched tokens 4096 then
+8192), plus the API bind address and log level. That confirms what was changed; it does not say what failed on the way.
+
 If you tune this lane, record the failure and the fix here as you go. That is the part of a recipe that cannot be reconstructed
 afterwards.
 
