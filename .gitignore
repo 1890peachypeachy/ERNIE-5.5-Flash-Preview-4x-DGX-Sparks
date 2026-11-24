@@ -1,0 +1,8 @@
+/.state/
+/logs/*
+!/logs/.gitkeep
+/.env
+/scripts/local.sh
+.DS_Store
+__pycache__/
+*.pyc
