@@ -54,10 +54,10 @@ Copy `zig-out/native/bin/tensorfold-native` (and your NCCL `libnccl.so.2` if not
 ```sh
 MODEL_DIR=/path/to/ERNIE-5.5-Flash-Preview \
 TF_BIN=/path/to/tensorfold-native \
-MASTER_IP=10.73.0.3 \
-RANK1_HOST=user@10.73.0.1 \
-RANK2_HOST=user@10.73.0.2 \
-RANK3_HOST=user@10.73.0.4 \
+MASTER_IP=192.0.2.1 \
+RANK1_HOST=user@192.0.2.2 \
+RANK2_HOST=user@192.0.2.3 \
+RANK3_HOST=user@192.0.2.4 \
 bash tensorfold/start_tensorfold.sh
 ```
 

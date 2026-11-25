@@ -2,7 +2,9 @@
 
 - **2026-11-25 (Native TensorFold backend)** -- Added [`tensorfold/`](tensorfold/README.md) recipe for running ERNIE-5.5-Flash-Preview natively on TensorFold (`1890peachypeachy/TensorFold@feat/ernie55`) across 4× DGX Sparks (TP=4 over lossless 100G RoCE v2). Includes SM121a Tensor-Core MMA HCA/DSA FlashAttention, 250 GB/s BF16 `lm_head`, BF16 VHA AllReduce, batched concurrent DSpark with exact quadratic MultiMax, and bucketed sparse CUDA graphs up to 262K context. Verified quiet-lane results: `c1` 45.1–47.4 tok/s prose / 58.0–76.4 tok/s code, `c2` 90.4 tok/s code, `c4` 121.8 tok/s code, 1,187 tok/s cold 12K prefill, 0.57 s warm 12K cache hit, +0 RoCE `packet_seq_err`.
 
-- **2026-11-25 (first cold start)** -- The first real run of `start.sh` stopped in preflight on two bugs of ours, both fixed: it required a registered `nvidia`
+- **2026-11-25 (first cold start, now verified)** -- `./start.sh` started the lane from stopped nodes: preflight passed on all four, the image built from the pinned base in ~3 s
+  (base already local), ranks 3,2,1,0 started, `/health` 200 after about four minutes on warm caches, `READY`, and a chat completion returned the right answer.
+  It first stopped in preflight on two bugs of ours, both fixed: it required a registered `nvidia`
   Docker runtime (these nodes expose GPUs through CDI, `--gpus all` still works), and it required 129 safetensors files (the weights are 128
   `model-*-of-00128.safetensors` shards; the 129th file is the optional `flashindexer/flashindexer.safetensors`, unused here).
 
