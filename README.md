@@ -28,7 +28,8 @@ DRY_RUN=1 ./start.sh                            # print all four `docker run` li
 
 The engine is stock vLLM (`0.34.1rc1.dev37`, commit `3e72879e`, torch `2.14.0+cu130`) from [eugr's Spark build](https://github.com/eugr/spark-vllm-docker)
 pinned by digest, plus Baidu's [vLLM-ERNIE](https://github.com/baidu/vLLM-ERNIE) plugin at commit `ba322a56`, plus ten small
-compatibility patches (`patches/patch_ernie_sm121.py`) that this vLLM and this GPU need. Baidu's model card installs
+compatibility patches (`patches/patch_ernie_sm121.py`) that this vLLM and this GPU need, and one measured GB10 speed patch
+(section 11: the router and compressor GEMVs, [docs/hillclimb.md](docs/hillclimb.md)). Baidu's model card installs
 `vllm==0.32.0` and targets B300; neither is what runs here.
 
 ## Why this stack on a Spark
@@ -65,6 +66,8 @@ Checked on 2026-11-24 against the live lane, by reading it back, not by trusting
   The benchmark below ran 64 streamed requests (1 to 16 at a time) and two long prompts with no errors.
 - **Speculative decoding is doing work.** See the table below: about 2.5 tokens per verify step on long thinking-heavy
   essays, and a higher 61% acceptance (2.8 tokens per step) over the lane's earlier mixed short traffic.
+- **Patch 11 qualification (2026-11-25).** A clean build of this repository booted cold through `start.sh`, matched the tested
+  image hash, and passed chat, reasoning, a tool-call round trip and needles at 35.8K and 71.5K tokens (3/3 each).
 - **Offline suite.** `scripts/tests/check.sh` (syntax, shellcheck, the DRY_RUN shape, and an exposure scan) passes.
 
 **Not checked, so do not read it as verified:**
@@ -116,6 +119,20 @@ How to read it:
 - **Prefill is about 1,525 tok/s**, flat from 6k to 24k tokens, so a 24k-token prompt waits roughly 16 s before the first
   token. The prefill figure is an upper bound on speed, because the time to first token also contains the first decode step.
 - **Not a quality score.** These numbers say how fast tokens come out, not whether they are good tokens.
+
+**After the 2026-11-25 hill-climb (patch 11).** The table above predates patch 11. Measured with the
+inference-optimisation skill's bench (6-prompt panel, seed 1234, temperature 0.6, 512-token replies: a different harness
+from the table above, so compare only within each table), every candidate between two controls:
+
+| | Controls, recipe before patch 11 (9 boots, mean +- sd) | **Patch 11** (2 A/B runs + the clean qualification build) |
+| --- | ---: | ---: |
+| c1 decode, median of 6 | 45.01 +- 0.87 (42.99-45.98) | **47.17 / 46.42 / 47.67**, mean 47.09 (**+4.6%**; every run above every control) |
+| c4 aggregate | 104.51 +- 1.84 | 110.4 / 104.5 / 106.5, mean 107.1 (+2.5%, overlaps the controls: inside noise) |
+| prefill tok/s, ~5K / ~20K prompt | 1,511 +- 21 / 1,537 +- 4 | **1,581 / 1,611** (**+4.6% / +4.8%**, no overlap) |
+
+The clean build from this repository (image `ernie55-vllm:17721a5a950a`, identical to the tested one) also passed chat,
+reasoning, a tool-call round trip and long-context needles (3/3 at 35.8K and at 71.5K tokens). What the step is made of,
+everything that was tried and rejected, and the ranked remaining levers: [docs/hillclimb.md](docs/hillclimb.md).
 
 A second, larger set from the tuning session (prose, code, JSON, deterministic and live agentic runs, concurrency 2 and 4, prefill to 88K
 and a 180K needle test, plus how `b12x`, `k=3` and `mnbt=8192` were chosen over the baseline) is in

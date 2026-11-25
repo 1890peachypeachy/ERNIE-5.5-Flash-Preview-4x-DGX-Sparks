@@ -37,9 +37,10 @@ target text is present, so a plugin or vLLM that has moved on fails the build in
 | 8 | `b12x/moe/_shared/kernels/situ.py` | The `situ` MoE class forwards every keyword argument to its parent (the W4A8 path passes more than it accepted) |
 | 9 | `nvidia/flashindexer.py` | vLLM 0.34 passes extra keyword arguments (such as `logits_dtype`) to the FP8×FP4 MQA-logits call: forward them |
 | 10 | `parser.py` | Turn off vLLM's `arg_value_extender` for the ERNIE tool-call parser: it conflicts with the parser's own argument converter and corrupted streamed multi-argument JSON tool calls |
+| 11 | `vllm/models/deepseek_v4/compressor.py`, `nvidia/moe.py` | On sm_12x, for M <= 16: the HCA compressor's fused wkv/wgate GEMV and the router GEMV (router weights kept in the checkpoint's bf16 so GateLinear's tier 1 applies) run through vLLM's cuteDSL `ll_bf16_gemm`. bf16 x bf16, fp32 accumulation and output, as before; only the summation order changes. c1 +4.6%, prefill +4.6-4.8% ([docs/hillclimb.md](../docs/hillclimb.md)) |
 
 Numbers 1-3, 5-7 and 9 are renames and signature changes between vLLM 0.32 (what Baidu's card pins) and 0.34. Numbers 4 and 8
-are what GB10 needs. Number 10 is a correctness fix for tool calls.
+are what GB10 needs. Number 10 is a correctness fix for tool calls. Number 11 is a GB10 speed change, measured between controls.
 
 **Not covered by any test in this repo:** the patches are known to apply and to boot; their numerical effect (the sm_121
 attention merge in particular) has no isolated check, only the end-to-end replies noted in `docs/validation.md`.

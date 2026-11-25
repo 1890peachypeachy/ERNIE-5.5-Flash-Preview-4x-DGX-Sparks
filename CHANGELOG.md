@@ -1,5 +1,13 @@
 # Changelog
 
+- **2026-11-25 (hill-climb: patch 11)** -- `patches/patch_ernie_sm121.py` section 11: on GB10 (sm_12x), for M <= 16, the
+  HCA compressor's fused wkv/wgate GEMV and the MoE router GEMV run through vLLM's cuteDSL `ll_bf16_gemm`; the router weights
+  stay in the checkpoint's bf16 (they were upcast to fp32) so `GateLinear` can take its tier-1 path, which vLLM gates to
+  Hopper/Blackwell-100. bf16 x bf16 with fp32 accumulation and output before and after. Measured between controls:
+  **c1 +4.6%**, **prefill +4.6-4.8%**, c4 +2.5% (inside noise) (`docs/hillclimb.md`). Rejected in the same pass: NCCL tree, LL protocol,
+  2 channels; `--linear-backend` b12x / cutlass / flashinfer_cutlass / triton (none runs the block-FP8 linears); cuBLASLt.
+  Also: `VLLM_EXTRA_ARGS` / `EXTRA_ENV` tuning hooks (empty = byte-identical launch). Image tag moves to `17721a5a950a`.
+
 - **2026-11-25 (Native TensorFold backend)** -- Added [`tensorfold/`](tensorfold/README.md) recipe for running ERNIE-5.5-Flash-Preview natively on TensorFold (`1890peachypeachy/TensorFold@feat/ernie55`) across 4× DGX Sparks (TP=4 over lossless 100G RoCE v2). Includes SM121a Tensor-Core MMA HCA/DSA FlashAttention, 250 GB/s BF16 `lm_head`, BF16 VHA AllReduce, batched concurrent DSpark with exact quadratic MultiMax, and bucketed sparse CUDA graphs up to 262K context. Verified quiet-lane results: `c1` 45.1–47.4 tok/s prose / 58.0–76.4 tok/s code, `c2` 90.4 tok/s code, `c4` 121.8 tok/s code, 1,187 tok/s cold 12K prefill, 0.57 s warm 12K cache hit, +0 RoCE `packet_seq_err`.
 
 - **2026-11-25 (first cold start, now verified)** -- `./start.sh` started the lane from stopped nodes: preflight passed on all four, the image built from the pinned base in ~3 s

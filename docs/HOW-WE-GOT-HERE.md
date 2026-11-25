@@ -24,7 +24,7 @@ Neither runs unmodified on four Sparks:
   says its symmetric-memory all-reduce does not support capability 12.1). The patch moves those layers onto FlashInfer's SM120
   sparse-MLA backend, which the plugin did not select on its own.
 - **vLLM moved.** The plugin was written against 0.32. The Spark base image carries 0.34.1rc1, in which several internals the plugin
-  touches were renamed. The patch file's ten sections are mostly that.
+  touches were renamed. The patch file's first ten sections are mostly that; section 11 is a later, measured speed change (`hillclimb.md`).
 
 ## What is recorded, and what is not
 

@@ -39,6 +39,17 @@ curl -s localhost:$PORT/metrics | grep -E '^vllm:spec_decode_(num_drafts|num_dra
 | Spec-decode counters | 2,527 drafts, 7,581 drafted, 4,633 accepted; per position 2,095 / 1,521 / 1,017 | DSpark drafts are accepted at about 61%; speed-up not measured |
 | `scripts/tests/check.sh` | passes | Scripts parse, DRY_RUN has the right shape, nothing sensitive is committed |
 
+## Patch 11 qualification (2026-11-25)
+
+Clean checkout, cold boot through `start.sh`, image hash equal to the tested candidate. Gates: chat ("Tokyo", reasoning
+present), tool-call round trip (`get_weather` with valid JSON arguments, then a final answer using the tool result),
+needles at 35,815 and 71,530 prompt tokens (3/3 each). Speed: c1 47.67, c4 106.45, prefill 1,580 tok/s at ~5K.
+
+**Greedy output is not reproducible boot to boot on this stack**, with or without patch 11: two boots of the unchanged
+recipe gave 0/8 identical temperature-0 outputs, diverging at positions with top-1/top-2 gaps of 0.005-0.82 nats. An
+exact-output equivalence gate is therefore not available for any change here; patch 11's divergences were of the same
+size. See `docs/hillclimb.md`.
+
 ## Reported, not re-run here
 
 [docs/tuning.md](docs/tuning.md): one operator's tuning-sweep numbers (workload-specific decode, prefill to 88K, a 180K needle test, a k and `mnbt` comparison). Not reproduced by this repository.
