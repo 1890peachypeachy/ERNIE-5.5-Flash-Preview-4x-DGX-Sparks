@@ -50,7 +50,7 @@ build_run_cmd() {
     --device /dev/infiniband
     -v "$CACHE_DIR:/cache" -v "$MODEL_DIR:/model:ro"
     --entrypoint vllm)
-  local kv
+  local kv; local -a envs=()
   # Everything below is set by the launcher (the image does not carry it). VLLM_HOST_IP differs per rank.
   for kv in \
     "CUDA_CACHE_PATH=/cache/nv" "FLASHINFER_CUDA_ARCH_LIST=12.1a" "FLASHINFER_DISABLE_VERSION_CHECK=1" \
@@ -66,8 +66,18 @@ build_run_cmd() {
     "VLLM_ENGINE_READY_TIMEOUT_S=$WAIT_TIMEOUT" "VLLM_HOST_IP=${FABRIC_IPS[$r]}" \
     "VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0" "VLLM_NO_USAGE_STATS=1" "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB=256" \
     "VLLM_USE_BREAKABLE_CUDAGRAPH=1" "VLLM_WORKER_MULTIPROC_METHOD=spawn" "XDG_CACHE_HOME=/cache"; do
-    RUN_CMD+=(-e "$kv")
+    envs+=("$kv")
   done
+  # EXTRA_ENV: newline-separated KEY=VALUE lines (tuning experiments). A key already set above is replaced in place.
+  local line key i found
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || fail E_CONFIG "EXTRA_ENV line is not KEY=VALUE: '$line'"
+    key=${line%%=*}; found=0
+    for i in "${!envs[@]}"; do [[ "${envs[$i]%%=*}" == "$key" ]] && { envs[i]=$line; found=1; }; done
+    (( found )) || envs+=("$line")
+  done <<< "$EXTRA_ENV"
+  for kv in "${envs[@]}"; do RUN_CMD+=(-e "$kv"); done
   # shellcheck disable=SC2206
   local -a sizes=($CUDAGRAPH_SIZES)
   RUN_CMD+=("$tag" serve /model --served-model-name "$SERVED_NAME" --trust-remote-code --dtype bfloat16
@@ -80,6 +90,9 @@ build_run_cmd() {
     --cudagraph-capture-sizes "${sizes[@]}"
     --tensor-parallel-size 4 --nnodes 4 --node-rank "$r" --master-addr "${FABRIC_IPS[0]}" --master-port "$MASTER_PORT"
     --distributed-executor-backend mp)
+  # VLLM_EXTRA_ARGS: newline-separated, one argv element per line (so JSON values keep their spaces). Appended last, so a
+  # repeated flag overrides the one above (argparse keeps the last value).
+  while IFS= read -r line; do [[ -n "$line" ]] && RUN_CMD+=("$line"); done <<< "$VLLM_EXTRA_ARGS"
   (( r == 0 )) || RUN_CMD+=(--headless)
 }
 quote_cmd() { local a out=''; for a in "$@"; do out+="$(printf '%q' "$a") "; done; printf '%s' "${out% }"; }

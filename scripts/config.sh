@@ -39,6 +39,12 @@ SPEC_TOKENS="${SPEC_TOKENS:-3}"                          # DSpark draft block; t
 CUDAGRAPH_SIZES="${CUDAGRAPH_SIZES:-1 2 4 8 16 24 32 48 64}"
 MOE_BACKEND="${MOE_BACKEND:-b12x}"
 
+# --- tuning hooks (empty = the recipe as published) ---------------------------------------------------------------
+# VLLM_EXTRA_ARGS  newline-separated vllm serve arguments, one argv element per line, appended last (later flags win).
+# EXTRA_ENV        newline-separated KEY=VALUE container env; a key the recipe already sets is replaced, not duplicated.
+VLLM_EXTRA_ARGS="${VLLM_EXTRA_ARGS:-}"
+EXTRA_ENV="${EXTRA_ENV:-}"
+
 # --- fabric ----------------------------------------------------------------------------------------------------------
 FABRIC_IFACE="${FABRIC_IFACE:-enp1s0f1np1}"              # netdev of the CX7 port that carries the fabric subnet
 RDMA_HCAS="${RDMA_HCAS:-rocep1s0f1,roceP2p1s0f1}"        # the two RDMA devices of that cabled port
