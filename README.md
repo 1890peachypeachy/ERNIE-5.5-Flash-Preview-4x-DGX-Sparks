@@ -140,8 +140,8 @@ Reproduce: `python3 -I scripts/bench/bench.py --url http://127.0.0.1:$PORT --mod
 ## How it starts
 
 1. **Topology check** (`check_topology`): exactly four nodes, rank 0 is `local`, four IPv4 fabric addresses.
-2. **Preflight on every node**: aarch64, Docker with the NVIDIA runtime, a GB10 visible, `/dev/infiniband`, the node's fabric
-   address on the fabric netdev, the weights (config, index, at least 129 shards), a writable cache with free space, no leftover
+2. **Preflight on every node**: aarch64, Docker with GPU access (an `nvidia` runtime or CDI `nvidia.com/gpu` devices), a GB10 visible, `/dev/infiniband`, the node's fabric
+   address on the fabric netdev, the weights (config, index, all 128 `model-*-of-00128.safetensors` shards; the optional `flashindexer/` file is not needed), a writable cache with free space, no leftover
    container. Then rank 0's API port must be free.
 3. **Image** `ernie55-vllm:<hash>` on each node, built from `docker/Dockerfile` and the patch (the hash covers both and both pins).
    A node that already has the tag is skipped; the others build locally from a copy of `docker/` and `patches/` sent over ssh.
@@ -204,7 +204,7 @@ stops rank 0 first, then the others (30 s grace), removes the containers, and ar
 | Symptom | Cause and fix |
 | --- | --- |
 | `[E_CONFIG]` | `NODES`/`FABRIC_IPS` not four entries, rank 0 not `local`, or a bad address or interface name: see `scripts/local.sh.example` |
-| `[E_NODE] rankN: …` | The message names the failed check: no ssh, wrong arch, no NVIDIA runtime, no GB10, no `/dev/infiniband`, the fabric IP not on `FABRIC_IFACE`, weights missing or fewer than 129 shards, cache not writable or too full, or a leftover `ernie55-tp4` container (`./stop.sh`) |
+| `[E_NODE] rankN: …` | The message names the failed check: no ssh, wrong arch, no GPU access in Docker, no GB10, no `/dev/infiniband`, the fabric IP not on `FABRIC_IFACE`, weights missing or fewer than 128 shards, cache not writable or too full, or a leftover `ernie55-tp4` container (`./stop.sh`) |
 | `[E_PORT]` | `PORT` is already listening on rank 0 |
 | `[E_LAUNCH]`, `[E_RANK]` | `docker run` failed, or a rank's container exited while the API was coming up; the last 40 log lines are printed |
 | `[E_TIMEOUT]` | No `/health` within `WAIT_TIMEOUT`. The first start compiles kernels into `CACHE_DIR`; raise it. `docker logs ernie55-tp4` on each node |
