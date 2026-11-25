@@ -1,6 +1,9 @@
 <h1 align="center">ERNIE-5.5-Flash-Preview on four DGX Sparks</h1>
 
-<p align="center"><sub>vLLM + Baidu's vLLM-ERNIE plugin · tensor parallel 4 · W4A8 experts · DSpark speculative decoding · over the ConnectX-7 fabric</sub></p>
+<p align="center"><sub>Native TensorFold (SM121a CUDA + DSpark) &amp; vLLM + vLLM-ERNIE · tensor parallel 4 · QAT MXFP4/FP8 · over the ConnectX-7 RoCE v2 fabric</sub></p>
+
+> [!TIP]
+> **New: Native TensorFold backend ([`tensorfold/README.md`](tensorfold/README.md))** — runs `baidu/ERNIE-5.5-Flash-Preview` directly in Zig + SM121a CUDA (`1890peachypeachy/TensorFold@feat/ernie55`) with **45.1–47.4 tok/s** `c1` prose (+10–16% vs vLLM), **58.0–76.4 tok/s** `c1` code (+8–43% vs vLLM), **90.4 tok/s** `c2` code (+21% vs vLLM), **121.8 tok/s** `c4` code (+6.5% vs vLLM), flat **~40 tok/s** sparse-graphed decode out to 30K+, and **0.57 s** warm 12K prefix cache hits. See [`tensorfold/README.md`](tensorfold/README.md) for build & launch instructions.
 
 > [!IMPORTANT]
 > **Status: serving, measured for throughput, not for quality.** This recipe describes a lane that is up and answering on four GB10 Sparks (see
