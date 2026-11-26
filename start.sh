@@ -36,6 +36,7 @@ preflight() {
     ip -4 addr show dev '$FABRIC_IFACE' 2>/dev/null | grep -q 'inet ${FABRIC_IPS[$r]}/' || echo 'fabric IP ${FABRIC_IPS[$r]} not on $FABRIC_IFACE'
     [ -f '$MODEL_DIR/config.json' ] && [ -f '$MODEL_DIR/model.safetensors.index.json' ] || echo 'weights missing under $MODEL_DIR'
     n=\$(ls '$MODEL_DIR'/model-*-of-00128.safetensors 2>/dev/null | wc -l); [ \"\$n\" -eq 128 ] || echo \"\$n of 128 model shards present\"
+    [ '$FLASHINDEXER' != 1 ] || [ -f '$MODEL_DIR/flashindexer/flashindexer.safetensors' ] || echo 'FLASHINDEXER=1 but flashindexer/flashindexer.safetensors is missing under $MODEL_DIR (fetch it, or set FLASHINDEXER=0)'
     mkdir -p '$CACHE_DIR' 2>/dev/null && [ -w '$CACHE_DIR' ] || echo 'CACHE_DIR not writable'
     free=\$(df -BG --output=avail '$CACHE_DIR' 2>/dev/null | tail -1 | tr -dc 0-9); [ \"\${free:-0}\" -ge $MIN_DISK_GIB ] || echo \"only \${free:-0} GiB free under CACHE_DIR (want $MIN_DISK_GIB)\"
     docker ps -a --format '{{.Names}}' | grep -qx '$CONTAINER' && echo 'container $CONTAINER already exists (./stop.sh first)'

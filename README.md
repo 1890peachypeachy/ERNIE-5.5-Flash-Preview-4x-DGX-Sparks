@@ -158,7 +158,7 @@ Reproduce: `python3 -I scripts/bench/bench.py --url http://127.0.0.1:$PORT --mod
 
 1. **Topology check** (`check_topology`): exactly four nodes, rank 0 is `local`, four IPv4 fabric addresses.
 2. **Preflight on every node**: aarch64, Docker with GPU access (an `nvidia` runtime or CDI `nvidia.com/gpu` devices), a GB10 visible, `/dev/infiniband`, the node's fabric
-   address on the fabric netdev, the weights (config, index, all 128 `model-*-of-00128.safetensors` shards; the optional `flashindexer/` file is not needed), a writable cache with free space, no leftover
+   address on the fabric netdev, the weights (config, index, all 128 `model-*-of-00128.safetensors` shards; plus `flashindexer/flashindexer.safetensors` when `FLASHINDEXER=1`), a writable cache with free space, no leftover
    container. Then rank 0's API port must be free.
 3. **Image** `ernie55-vllm:<hash>` on each node, built from `docker/Dockerfile` and the patch (the hash covers both and both pins).
    A node that already has the tag is skipped; the others build locally from a copy of `docker/` and `patches/` sent over ssh.
@@ -183,14 +183,15 @@ Defaults live in `scripts/config.sh`; override in `scripts/local.sh` (which wins
 | `BIND_HOST` | `127.0.0.1` | API bind address. **The API has no authentication.** Use `0.0.0.0` only on a network you trust |
 | `PORT` | `8888` | API port on rank 0 |
 | `CONTEXT` | `262144` | `--max-model-len`. The model supports 1,048,576; only 262,144 was run |
-| `MAX_SEQS` | `16` | `--max-num-seqs` |
+| `MAX_SEQS` | `64` | `--max-num-seqs` (64: c32 329 / c64 439 tok/s aggregate, 1-16 streams unchanged) |
 | `MAX_BATCHED_TOKENS` | `8192` | `--max-num-batched-tokens` |
 | `KV_CACHE_BYTES` | `17179869184` | 16 GiB of KV per rank, as an explicit size. vLLM then skips memory profiling and **ignores** `GPU_UTIL` |
 | `GPU_UTIL` | `0.80` | Passed, but inert while `KV_CACHE_BYTES` is set (the engine says so in its log) |
 | `BLOCK_SIZE` | `256` | KV block size |
 | `SPEC_TOKENS` | `3` | DSpark draft tokens per step (the card suggests up to 7 at low concurrency; untested) |
-| `CUDAGRAPH_SIZES` | `1 2 4 8 16 24 32 48 64` | CUDA graph capture sizes (vLLM 0.34 warns the flag is deprecated; it still applies) |
+| `CUDAGRAPH_SIZES` | `1 2 4 8 16 24 32 48 64 96 128 192 256` | CUDA graph capture sizes (vLLM 0.34 warns the flag is deprecated; it still applies) |
 | `MOE_BACKEND` | `b12x` | W4A8 MoE kernels |
+| `FLASHINDEXER` | `1` | Baidu's FlashIndexer prefill head router (needs `flashindexer/` in the weights; patches 9b/9c). Prefill +4.5% at 156K, +7% at 231K. `0` = all 64 heads |
 | `FABRIC_IFACE`, `RDMA_HCAS`, `NCCL_GID_INDEX`, `FABRIC_PREFIX_LEN` | `enp1s0f1np1`, `rocep1s0f1,roceP2p1s0f1`, `3`, `24` | The fabric as this lane was cabled. Yours may differ: check `ip -br addr`, `ibdev2netdev`, `show_gids` |
 | `WAIT_TIMEOUT` | `3600` | Seconds `start.sh` waits for `/health`; also passed as `VLLM_ENGINE_READY_TIMEOUT_S` |
 | `BASE_IMAGE`, `VLLM_ERNIE_REF` | pinned (see `scripts/config.sh`) | Base image digest and plugin commit |

@@ -327,6 +327,37 @@ src9 = src9.replace("clean_logits=clean_logits,\n    )", "clean_logits=clean_log
 open(p9, "w").write(src9)
 print("Patched flashindexer.py (**kwargs forwarding) cleanly!")
 
+# 9b. vLLM 0.34 made the 6th positional arg max_seqlen_k (int) and dropped clean_logits; the plugin wrapper
+# still forwarded it as clean_logits=..., so enabling FlashIndexer died at warm-up. Forward positionals instead.
+src9 = open(p9).read()
+_n = src9.count("clean_logits=clean_logits,")
+src9 = src9.replace("cu_seqlen_ke, clean_logits=True, **kwargs\n):", "cu_seqlen_ke, *args, **kwargs\n):", 1)
+src9 = src9.replace("clean_logits=clean_logits,", "*args,")
+_body = src9.split("def _flashindexer_fp8_fp4_mqa_logits")[1].split("def patch_sparse")[0]
+assert _n == 2 and "clean_logits" not in _body and "*args, **kwargs" in _body, "9b targets"
+open(p9, "w").write(src9)
+print("Patched flashindexer.py (vLLM 0.34 positional max_seqlen_k) cleanly!")
+
+# 9c. GB10's DeepGEMM MQA-logits kernel only takes 16/32/64 heads (csrc/apis/attention.hpp:142); FlashIndexer keeps 8.
+# Pad the 8 selected heads to 16 by repeating them with weight exactly 0: relu(q.k) * 0 adds nothing, so the logits are
+# the 8-head selection's, computed by a 16-head kernel (4x fewer heads than the full 64 instead of 8x).
+src9 = open(p9).read()
+old9c = "    return _orig_mqa_logits(\n        (q_sel, q_sf_sel),"
+new9c = """    if q_sel.shape[1] < 16:
+        _pad = 16 - q_sel.shape[1]
+        _qb = q_sel.contiguous().view(torch.uint8)
+        q_sel = torch.cat([_qb, _qb[:, :_pad]], dim=1).view(q_sel.dtype)
+        if q_sf_sel is not None:
+            q_sf_sel = torch.cat([q_sf_sel, q_sf_sel[:, :_pad]], dim=1)
+        w_sel = torch.cat([w_sel, torch.zeros_like(w_sel[:, :_pad])], dim=1)
+""" + old9c
+assert src9.count(old9c) == 1, "9c target"
+src9 = src9.replace(old9c, new9c, 1)
+open(p9, "w").write(src9)
+print("Patched flashindexer.py (GB10 16-head pad) cleanly!")
+
+
+
 # 10. parser.py: disable minimax_m2 arg_value_extender (vLLM 0.34 optimization conflicts with
 # _ernie5_arg_converter popping empty trailing params, corrupting streamed multi-arg JSON tool calls)
 p10 = "/usr/local/lib/python3.12/dist-packages/vllm_ernie/models/ernie5_5/parser.py"

@@ -31,13 +31,14 @@ PORT="${PORT:-8888}"
 MASTER_PORT="${MASTER_PORT:-29688}"
 CONTEXT="${CONTEXT:-262144}"                             # the model supports 1,048,576; this is what was verified
 GPU_UTIL="${GPU_UTIL:-0.80}"
-MAX_SEQS="${MAX_SEQS:-16}"
+MAX_SEQS="${MAX_SEQS:-64}"                                # 64: c32 329 / c64 439 tok/s aggregate; c1-c16 unchanged (hill-climb 2026-11-26)
 MAX_BATCHED_TOKENS="${MAX_BATCHED_TOKENS:-8192}"
 KV_CACHE_BYTES="${KV_CACHE_BYTES:-17179869184}"          # 16 GiB of KV per rank, an explicit size (not a fraction)
 BLOCK_SIZE="${BLOCK_SIZE:-256}"
 SPEC_TOKENS="${SPEC_TOKENS:-3}"                          # DSpark draft block; the model card suggests up to 7 at low concurrency (untested here)
-CUDAGRAPH_SIZES="${CUDAGRAPH_SIZES:-1 2 4 8 16 24 32 48 64}"
+CUDAGRAPH_SIZES="${CUDAGRAPH_SIZES:-1 2 4 8 16 24 32 48 64 96 128 192 256}"  # covers MAX_SEQS x (SPEC_TOKENS+1)
 MOE_BACKEND="${MOE_BACKEND:-b12x}"
+FLASHINDEXER="${FLASHINDEXER:-1}"                        # 1: learned 8-of-64 DSA-indexer head router (checkpoint flashindexer/), patches 9b/9c; prefill +4.5% at 156K, +7% at 231K
 
 # --- tuning hooks (empty = the recipe as published) ---------------------------------------------------------------
 # VLLM_EXTRA_ARGS  newline-separated vllm serve arguments, one argv element per line, appended last (later flags win).

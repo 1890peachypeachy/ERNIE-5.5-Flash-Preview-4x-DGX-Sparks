@@ -95,3 +95,36 @@ evaluation was not run.
 | Fewer all-reduces per step (186 now; e.g. one reduce for shared + routed experts) | up to ~5-8% c1 | model-code change, numerics review |
 | Vocab-shard the DSpark Markov head across the four ranks (1.4 ms -> ~0.4 ms + a gather) | ~2% c1 | plugin change |
 | Compressor GEMV at M=16 back on cuBLAS (only the router keeps `ll_bf16_gemm` there) | <1% c4 | trivial, below this harness's noise |
+
+
+## 2026-11-26: FlashIndexer on GB10 (patches 9b/9c) and 64 sequences
+
+Prompted by Baidu's vLLM recipe (DSpark k=7, FlashIndexer) and SGLang's low-latency ERNIE blog, 33 more boots with the same
+bench between controls, plus a c8-c64 concurrency sweep and cold 156K/231K-token prefills with needles.
+
+| | Before (controls, 13 boots) | **This branch** (FLASHINDEXER=1, MAX_SEQS=64) | Change |
+|---|---:|---:|---:|
+| c1 decode | 44.5-49.7 | 46.2 | none (inside noise) |
+| c4 / c8 / c16 aggregate | 99-108 / 154-160 / 222-233 | 102.5 / 158.0 / 225.3 | none |
+| **c32 aggregate** | capped at 16 streams | **329.5** | new (+42% over the old 16-stream ceiling) |
+| **c64 aggregate** | capped at 16 streams | **438.6** (7.5 tok/s per stream) | new (+90%) |
+| prefill 5K / 20K | ~1,590 / ~1,605 | 1,586 / 1,610 | none |
+| **prefill 82K / 156K / 231K** | ~1,515 / 1,424 / 1,302-1,331 | **1,554 / 1,474-1,492 / 1,382-1,428** | **+3% / +4.5-4.8% / +6.9-7.3%** |
+| gates | | chat, reasoning, tool round trip, needles at 36K / 72K / 156K / 231K: all 3/3 | |
+
+- **FlashIndexer** is Baidu's learned router that keeps 8 of the 64 DSA-indexer heads per token in prefill (checkpoint
+  `flashindexer/flashindexer.safetensors`, 3.1 MB). It did not run on this stack: **9b** — vLLM 0.34 made the sixth
+  positional argument of `fp8_fp4_mqa_logits` `max_seqlen_k` and dropped `clean_logits`, which the plugin's wrapper still
+  passed; **9c** — GB10's DeepGEMM MQA-logits kernel takes only 16, 32 or 64 heads, so the 8 selected heads are padded to
+  16 by repeating them with weight exactly 0 (relu(q.k) x 0 contributes nothing: the logits are the 8-head selection's).
+  The gain grows with context because the indexer is the one part of prefill that grows quadratically. FlashIndexer is an
+  approximation of the full-head selection, trained by Baidu; it is gated here by needles to 231K, not by a task eval.
+  `FLASHINDEXER=0` turns it off (the 9b/9c image is inert then: measured).
+- **MAX_SEQS 64** (graphs captured to 256 tokens = 64 x (k+1)) changes nothing at 1-16 streams and lets aggregate throughput
+  keep rising: 329 at 32, 439 at 64. The 16 GiB KV pool (572K tokens) bounds how many *long* requests fit at once.
+- **Rejected** (each between two controls): DSpark k=5 (c1 -3%, c16 -24%), k=7 (c1 -12%), batch-keyed k schedules
+  (neutral to worse), `--max-num-batched-tokens 16384` (a c4 win that did not repeat), indexer logits cap 1 GiB (neutral).
+  Why k=7 loses here when it is Baidu's default: with sampling and thinking on, acceptance by position is ~70/41/21%, so
+  draft positions 4-7 add ~0.25 tokens per step while each verify row costs memory bandwidth. Baidu's ~5 accepted tokens
+  per step were measured on coding/agent traffic on GB200.
+- Ledger, per-run logs and the runner: `1890peachypeachy/spark-bench`, `models/ernie55-tp4/hillclimb/` (PLAN.md stage 3).

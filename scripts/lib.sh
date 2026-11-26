@@ -90,6 +90,7 @@ build_run_cmd() {
     --cudagraph-capture-sizes "${sizes[@]}"
     --tensor-parallel-size 4 --nnodes 4 --node-rank "$r" --master-addr "${FABRIC_IPS[0]}" --master-port "$MASTER_PORT"
     --distributed-executor-backend mp)
+  [[ "$FLASHINDEXER" == 1 ]] && RUN_CMD+=(--hf-overrides '{"enable_flashindexer": true}')
   # VLLM_EXTRA_ARGS: newline-separated, one argv element per line (so JSON values keep their spaces). Appended last, so a
   # repeated flag overrides the one above (argparse keeps the last value).
   while IFS= read -r line; do [[ -n "$line" ]] && RUN_CMD+=("$line"); done <<< "$VLLM_EXTRA_ARGS"
