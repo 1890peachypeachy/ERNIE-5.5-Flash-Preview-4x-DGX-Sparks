@@ -25,7 +25,7 @@ if [ -n "$LIB_DIR" ]; then
   ENV_COMMON="LD_LIBRARY_PATH=$LIB_DIR $ENV_COMMON"
 fi
 
-ARGS_COMMON="$MODEL_DIR --backend cuda --host $BIND_HOST --port $PORT --name $SERVED_NAME --context $CONTEXT --thinking --tp 4 --master $MASTER_IP --master-port $MASTER_PORT"
+ARGS_COMMON="$MODEL_DIR --backend cuda --host $BIND_HOST --port $PORT --name $SERVED_NAME --context $CONTEXT --thinking --prompt-cache-gib ${PROMPT_CACHE_GIB:-6} --tp 4 --master $MASTER_IP --master-port $MASTER_PORT"
 
 # Launch workers (ranks 3, 2, 1) first, then rank 0 (API server)
 ssh -o BatchMode=yes "$RANK3_HOST" "nohup env $ENV_COMMON $TF_BIN serve $ARGS_COMMON --rank 3 >/tmp/tf_ernie_r3.log 2>&1 </dev/null &"
