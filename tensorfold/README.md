@@ -2,7 +2,7 @@
 
 This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-Preview`](https://huggingface.co/baidu/ERNIE-5.5-Flash-Preview) natively on **TensorFold** (Zig 0.17.0 + SM121a CUDA) across four NVIDIA DGX Sparks (GB10, `sm_121a`, 128 GB unified memory each) over lossless 100G RoCE v2.
 
-- **Fork / branch:** [`1890peachypeachy/TensorFold@feat/ernie55`](https://github.com/1890peachypeachy/TensorFold/tree/feat/ernie55) (commit `92a3be5`)
+- **Fork / branch:** [`1890peachypeachy/TensorFold@feat/ernie55`](https://github.com/1890peachypeachy/TensorFold/tree/feat/ernie55) (commit `bb1c1a0`)
 - **Precision:** Exact checkpoint fidelity — native QAT MXFP4 routed experts + block-128 FP8 projections + BF16 `lm_head` + bundled 3-layer DSpark speculative drafter + optional Baidu `FlashIndexer` 8-of-64 prefill head router (no lossy re-quantization)
 - **Context & features:** 262,144-token context (CUDA-graphed decode via bucketed sparse graphs), thinking mode, ERNIE parallel multi-arg tool calling, 128-token prefix cache grid, 4096-row prefill chunks
 
@@ -10,7 +10,7 @@ This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-P
 
 Measured on the same 4× DGX Spark cluster (`+0` RoCE `packet_seq_err`, `~53–62 GiB` `MemAvailable` per Spark, exact math `17*23=391`, 66K needle recall = `True`, exact parallel multi-arg JSON tool calling):
 
-| Workload | Live vLLM Baseline | TF Start (`1024`-row) | **Native TensorFold (`92a3be5`)** | Notes |
+| Workload | Live vLLM Baseline | TF Start (`1024`-row) | **Native TensorFold (`bb1c1a0`)** | Notes |
 |---|---:|---:|---:|---|
 | **Cold 12K prefill** | `1,603.8 tok/s` (`7.97 s`) | `1,187 tok/s` (`10.76 s`) | **`1,618.5 tok/s` (`7.43 s`)** | **Beats vLLM (`-0.54 s`, +36% vs TF start)** |
 | **Cold 66K prefill** | `1,566.4 tok/s` (`43.82 s`) | `1,065 tok/s` (`64.46 s`) | **`1,486.5 tok/s` (`43.99 s`, `52.2 tok/s` dec)** | **+39.6% (`-20.5 s`!), within `0.17 s` of vLLM** |
@@ -20,7 +20,8 @@ Measured on the same 4× DGX Spark cluster (`+0` RoCE `packet_seq_err`, `~53–6
 | **`c1` Code (`temp=0.7`)** | `53.6 tok/s` | `58.0 – 76.4 tok/s` | **`58.0 – 76.4 tok/s`** | **+8–43% vs vLLM** |
 | **`c1` Parallel Tool Calling** | — | `74.1 – 81.9 tok/s` | **`55.3 – 81.9 tok/s`** | exact multi-arg JSON |
 | **`c2` Code (agg decode)** | `74.7 tok/s` | `90.4 tok/s` | **`90.4 tok/s`** | **+21% vs vLLM** |
-| **`c4` Code (agg decode)** | `114.4 tok/s` | `121.8 tok/s` | **`121.8 tok/s`** | **+6.5% vs vLLM** |
+| **`c4` Mixed Code/Tech (agg decode)** | `114.4 tok/s` | `80.0 tok/s` *(pre-W4)* | **`108.3 – 121.8 tok/s`** (`38.3 tok/s`/stream, `0.36 s` TTFT) | **+35.4% vs pre-W4, `-60%` max TTFT (`0.56 s`)** |
+| **`c8` Mixed Code/Tech (agg decode)** | — | `99.8 tok/s` *(pre-W4)* | **`106.8 tok/s`** (`15.5 tok/s`/stream, `1.15 s` avg TTFT, `45 GiB` free) | **Full 8×8 DSpark in 1 shared verify (`window_rows=64`)** |
 
 ## Key SM121a Optimizations Included
 
@@ -39,7 +40,8 @@ Measured on the same 4× DGX Spark cluster (`+0` RoCE `packet_seq_err`, `~53–6
 1. **SM121a Tensor-Core MMA FlashAttention + Split-K (`hca_attn.cu`, `dsa_attn.cu`):** `mma.sync.aligned.m16n8k16` for HCA (`14 µs/layer`), DSpark HCA, and MLA-DSA (`44 µs/layer`), with zero-padded tail K-tiles and bucketed sparse CUDA graphs (`4K..262K`).
 2. **Fused Decode GEMVs, Dedicated LM Head, & Fast mHC (`cuda_weights.zig`, `ops.cu`, `cuda_forward.zig`):** Fused `qdown_kv`, `qup_ogate`, `comp_wkv_wgate`, `qa_kva`, `qb_ogate`, `gate_up`, `fc1_shared_w13`; dedicated `250 GB/s` `tf_ernie55_lm_head_bf16`; `213 GB/s` fused BF16 router; 16-lane parallel-warp Sinkhorn; last-token-only prompt logits (`forwardWithTapsLastOnly`).
 3. **RoCE Fabric & Sampler (`cuda_forward.zig`, `cuda_sampler.zig`):** BF16 VHA post-mix AllReduce; `TF_ROCE` dual-HCA RDMA for decode (`< 1 MiB`) + NCCL Ring AllReduce for prefill (`>= 1 MiB`); single-sync `drawBatch`.
-4. **Batched Concurrent DSpark (`cuda_dspark.zig`, `cuda_engine.zig`, `cuda_follow.zig`, `cuda_lanes.zig`, `ops.cu`):** Batched `absorbMany`/`draftMany`, 8-entry LRU CUDA graph caches for `verifyMany` and `blockMany`, fused `keep` advances, exact quadratic MultiMax.
+4. **Tensor-Core Concurrent MoE/FP8 & `window_rows = 64` (`cuda_forward.zig`, `cuda_engine.zig`, `cuda_lanes.zig`):** `grouped_min_rows = 24` and `fp8GemmB128Mma` at `rows >= 24` put `c4`/`c8` onto CUDA-graphed Tensor Cores; `window_rows = 64` fits all 8 streams × 8 DSpark rows in one shared verify; `pooled_slots = 4` keeps 4 warm slots and their CUDA graphs hot (`+35.4%` `c4` decode, `-60%` `c4` max TTFT).
+5. **Batched Concurrent DSpark (`cuda_dspark.zig`, `cuda_engine.zig`, `cuda_follow.zig`, `cuda_lanes.zig`, `ops.cu`):** Batched `absorbMany`/`draftMany`, 8-entry LRU CUDA graph caches for `verifyMany` and `blockMany`, fused `keep` advances, exact quadratic MultiMax.
 
 ## Build & Run
 
