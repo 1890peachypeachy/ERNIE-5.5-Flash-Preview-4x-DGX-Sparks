@@ -15,8 +15,9 @@ This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-P
 >   no longer depend on which streams share the round. `greedyRule()` is fixed (`inv_t = 1`) for grammar-masked
 >   draws.
 > - **Gate for every build:** 4 greedy + 4 sampled requests at once (spark-bench `probe_concurrency.py`, mode
->   `c8-mix`). Each greedy reply must keep its answer and match its solo reply. All-greedy and all-sampled tests
->   cannot see this bug.
+>   `c8-mix`). Each greedy reply must keep its answer: all codes, no PAD. A byte-for-byte match with the solo
+>   reply is usual but not guaranteed, because batched rounds run different kernels and can flip a near-tied
+>   formatting token. All-greedy and all-sampled tests cannot see this bug.
 - **Precision:** Exact checkpoint fidelity — native QAT MXFP4 routed experts + block-128 FP8 projections + BF16 `lm_head` + bundled 3-layer DSpark speculative drafter + optional Baidu `FlashIndexer` 8-of-64 prefill head router (no lossy re-quantization)
 - **Context & features:** 262,144-token context (CUDA-graphed decode via bucketed sparse graphs), thinking mode, ERNIE parallel multi-arg tool calling, 128-token prefix cache grid, 4096-row sequence-parallel prefill chunks
 
