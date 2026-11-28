@@ -2,7 +2,21 @@
 
 This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-Preview`](https://huggingface.co/baidu/ERNIE-5.5-Flash-Preview) natively on **TensorFold** (Zig 0.17.0 + SM121a CUDA) across four NVIDIA DGX Sparks (GB10, `sm_121a`, 128 GB unified memory each) over lossless 100G RoCE v2.
 
-- **Fork / branch:** [`1890peachypeachy/TensorFold@feat/ernie55`](https://github.com/1890peachypeachy/TensorFold/tree/feat/ernie55) (commit `45b4c7e`)
+- **Fork / branch:** [`1890peachypeachy/TensorFold@feat/ernie55`](https://github.com/1890peachypeachy/TensorFold/tree/feat/ernie55) (commit `6ade1fe` = Wave-5 `45b4c7e` + the greedy-in-sampled-rounds correctness fix below)
+
+> **Correctness fix, 2026-11-27 (`6ade1fe`). Builds before it are affected; rebuild.**
+>
+> - **Symptom:** a greedy request (temperature 0) that decodes while a sampled request (temperature > 0) is also
+>   decoding turns into `<|ERNIE_PAD|>` tokens after its first token, then stops.
+> - **Cause:** a shared verify that holds a sampled stream drew its greedy streams with a zero-temperature rule
+>   (`inv_t = 0`). `sample.cu` ranks candidates by `logit * inv_t`, so the all-zero tie went to token 0, which is
+>   PAD.
+> - **Fix:** greedy streams in such rounds now take the same F32 argmax as an all-greedy round, so their tokens
+>   no longer depend on which streams share the round. `greedyRule()` is fixed (`inv_t = 1`) for grammar-masked
+>   draws.
+> - **Gate for every build:** 4 greedy + 4 sampled requests at once (spark-bench `probe_concurrency.py`, mode
+>   `c8-mix`). Each greedy reply must keep its answer and match its solo reply. All-greedy and all-sampled tests
+>   cannot see this bug.
 - **Precision:** Exact checkpoint fidelity — native QAT MXFP4 routed experts + block-128 FP8 projections + BF16 `lm_head` + bundled 3-layer DSpark speculative drafter + optional Baidu `FlashIndexer` 8-of-64 prefill head router (no lossy re-quantization)
 - **Context & features:** 262,144-token context (CUDA-graphed decode via bucketed sparse graphs), thinking mode, ERNIE parallel multi-arg tool calling, 128-token prefix cache grid, 4096-row sequence-parallel prefill chunks
 

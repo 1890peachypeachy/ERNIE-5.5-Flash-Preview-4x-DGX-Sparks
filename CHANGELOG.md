@@ -1,5 +1,16 @@
 # Changelog
 
+- **2026-11-27 (Native TensorFold: correctness fix `6ade1fe`)** -- Under mixed traffic, greedy replies (temperature 0)
+  turned into `<|ERNIE_PAD|>` after their first token whenever a sampled request shared the decode round. The shared
+  verify drew greedy streams with a zero-temperature rule (`inv_t = 0`), and the all-zero tie went to token 0. Greedy
+  streams in sampled rounds now take the F32 argmax; `greedyRule()` uses `inv_t = 1`. Validation:
+  - sampled-mix stress: 93/93 clean (before: 28/37 bad);
+  - 4 greedy + 4 sampled at once: greedy 4/4 identical to solo (before: 0/4);
+  - gates and the 66K needle pass;
+  - no speed change (c1/c2/c4/c8 48.1/59.0/82.4/108.2 tok/s aggregate on the 200G fabric).
+
+  `feat/ernie55` now points to `6ade1fe`. Older native builds are affected; rebuild.
+
 - **2026-11-25 (hill-climb: patch 11)** -- `patches/patch_ernie_sm121.py` section 11: on GB10 (sm_12x), for M <= 16, the
   HCA compressor's fused wkv/wgate GEMV and the MoE router GEMV run through vLLM's cuteDSL `ll_bf16_gemm`; the router weights
   stay in the checkpoint's bf16 (they were upcast to fp32) so `GateLinear` can take its tier-1 path, which vLLM gates to
