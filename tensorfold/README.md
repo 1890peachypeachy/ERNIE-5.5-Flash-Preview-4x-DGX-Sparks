@@ -1,6 +1,6 @@
 # Native TensorFold Backend for ERNIE-5.5-Flash-Preview (4× DGX Spark, TP=4 RoCE)
 
-This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-Preview`](https://huggingface.co/baidu/ERNIE-5.5-Flash-Preview) natively on **TensorFold** (Zig 0.17.0 + SM121a CUDA) across four NVIDIA DGX Sparks (GB10, `sm_121a`, 128 GB unified memory each) over lossless 100G RoCE v2.
+This directory documents how to build, deploy, and run [`baidu/ERNIE-5.5-Flash-Preview`](https://huggingface.co/baidu/ERNIE-5.5-Flash-Preview) natively on **TensorFold** (Zig 0.17.0 + SM121a CUDA) across four NVIDIA DGX Sparks (GB10, `sm_121a`, 128 GB unified memory each) over lossless RoCE v2: 200G links since 2026-11-27 (CRS804 breakout DACs, ~112 Gb/s per CX7 PCIe half, ~196 Gb/s on both); 100G before, which is where the numbers below up to Wave-5 were measured.
 
 - **Fork / branch:** [`1890peachypeachy/TensorFold@feat/ernie55`](https://github.com/1890peachypeachy/TensorFold/tree/feat/ernie55) (commit `6ade1fe` = Wave-5 `45b4c7e` + the greedy-in-sampled-rounds correctness fix below)
 

@@ -9,7 +9,7 @@ they are not expected to match (for example, one stream is 40.9 tok/s on prose h
 ## Test setup
 
 - **Model:** `baidu/ERNIE-5.5-Flash-Preview` (280B total / 14B active; official MXFP4 routed experts, blockwise FP8 dense and attention, FP8 KV, bundled 3-layer DSpark draft head; 154.5 GiB on disk).
-- **Hardware:** 4 DGX Spark (GB10 `sm_121a`, 121.7 GiB unified memory each), measured memory bandwidth 233.14 GB/s per node, 932.56 GB/s aggregate, TP=4 over a lossless 100G RoCE v2 switch (`NCCL_IB_TC=106`, `NCCL_ALGO=Ring`, 4 channels, no `packet_seq_err` during the runs).
+- **Hardware:** 4 DGX Spark (GB10 `sm_121a`, 121.7 GiB unified memory each), measured memory bandwidth 233.14 GB/s per node, 932.56 GB/s aggregate, TP=4 over a lossless 100G RoCE v2 switch (the fabric in effect for these measurements; 200G since 2026-11-27) (`NCCL_IB_TC=106`, `NCCL_ALGO=Ring`, 4 channels, no `packet_seq_err` during the runs).
 - **Stack:** `eugr/spark-vllm` (vLLM 0.34.1rc1, CUDA 13.0, FlashInfer 0.7.5, `b12x`, TileLang 0.1.12) + `baidu/vLLM-ERNIE` + the SM121 FlashInfer HCA/DSA and `b12x` `SITU` patches in `patches/`.
 - **Winning config:** `--tensor-parallel-size 4`, `--moe-backend b12x`, `--kv-cache-dtype fp8`, `--max-model-len 262144`, `--kv-cache-memory-bytes 17179869184`, `--max-num-batched-tokens 8192`, DSpark with `num_speculative_tokens: 3`.
 - **Memory:** 41.74 GiB of weights per Spark (target plus draft head); 46.0 to 49.0 GiB of unified memory still free per Spark after a 180K-token prompt.
